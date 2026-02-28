@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>SW + AM + FM Stream Receiver (PWA)</title>
+  <link rel="manifest" href="manifest.json" />
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --muted:#93a4bf;
+      --text:#e7eefc;
+      --border:rgba(147,164,191,.18);
+      --shadow:0 12px 30px rgba(0,0,0,.35);
+      --radius:18px;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:radial-gradient(900px 500px at 20% 0%, rgba(56,189,248,.14), transparent 55%),
+                 radial-gradient(900px 500px at 90% 10%, rgba(34,197,94,.10), transparent 50%),
+                 var(--bg);
+      color:var(--text);
+    }
+    header{
+      position:sticky; top:0; z-index:10;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(to bottom, rgba(11,18,32,.92), rgba(11,18,32,.70));
+      border-bottom:1px solid var(--border);
+    }
+    .wrap{max-width:980px; margin:0 auto; padding:14px 14px 18px;}
+    .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+    .title{display:flex; align-items:center; gap:10px; font-weight:750; letter-spacing:.2px;}
+    .badge{
+      font-size:12px; padding:4px 10px; border:1px solid var(--border);
+      border-radius:999px; color:var(--muted);
+    }
+    .btn{
+      appearance:none; border:1px solid var(--border); color:var(--text);
+      background:rgba(255,255,255,.04); padding:10px 12px; border-radius:12px;
+      cursor:pointer; display:inline-flex; gap:8px; align-items:center;
+      transition:.12s transform ease, .12s background ease, .12s border ease;
+      user-select:none;
+    }
+    .btn:hover{background:rgba(255,255,255,.07)}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{border-color:rgba(56,189,248,.35); background:rgba(56,189,248,.10)}
+    .btn.good{border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.10)}
+    .btn.warn{border-color:rgba(245,158,11,.35); background:rgba(245,158,11,.10)}
+    .btn.small{padding:8px 10px; font-size:13px}
+    .btn.tiny{padding:6px 10px; font-size:12px}
+    .spacer{flex:1}
+    .grid{display:grid; grid-template-columns:1.25fr .75fr; gap:14px; align-items:start}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{padding:12px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+    .card .bd{padding:12px 14px}
+    .muted{color:var(--muted)}
+    .kpi{display:flex; gap:10px; flex-wrap:wrap}
+    .pill{
+      border:1px solid var(--border);
+      padding:6px 10px;
+      border-radius:999px;
+      color:var(--muted);
+      font-size:12px;
+      background:rgba(255,255,255,.03);
+    }
+    .tabs{display:flex; gap:8px; flex-wrap:wrap}
+    .tab{
+      border:1px solid var(--border);
+      padding:8px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.03);
+      color:var(--muted);
+      cursor:pointer;
+      user-select:none;
+      font-size:13px;
+    }
+    .tab.active{
+      border-color:rgba(56,189,248,.35);
+      background:rgba(56,189,248,.10);
+      color:var(--text);
+    }
+    .inputs{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    @media (max-width:520px){.inputs{grid-template-columns:1fr}}
+    .field{display:grid; gap:6px}
+    .field label{font-size:12px; color:var(--muted)}
+    .field input, .field select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      outline:none;
+    }
+    .field input::placeholder{color:rgba(147,164,191,.65)}
+    .warnbox{
+      border:1px dashed rgba(245,158,11,.45);
+      background:rgba(245,158,11,.08);
+      padding:10px 12px;
+      border-radius:14px;
+      color:rgba(255,235,200,.92);
+      font-size:12px;
+      line-height:1.35;
+    }
+    .list{display:grid; gap:10px}
+    .station{
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+      background:rgba(255,255,255,.03);
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+    .station .name{font-weight:750}
+    .station .meta{font-size:12px; color:var(--muted); margin-top:3px}
+    .station .actions{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end}
+    .tuner{display:grid; gap:10px}
+    .dial{
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:12px;
+      background:rgba(0,0,0,.15);
+    }
+    .freq{display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;}
+    .freq .big{font-size:34px; font-weight:800; letter-spacing:.5px;}
+    input[type="range"]{width:100%}
+    .now .box{
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+      background:rgba(0,0,0,.18);
+    }
+    .status{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      color:var(--muted);
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+    .dot.live{background:var(--good)}
+    .dot.err{background:var(--bad)}
+    audio{width:100%}
+    .footer{padding:14px; color:rgba(147,164,191,.85); font-size:12px; text-align:center;}
+
+    .presets{
+      margin-top:12px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+      background:rgba(255,255,255,.03);
+      display:grid;
+      gap:10px;
+    }
+    .presets h4{margin:0; font-size:13px}
+    .presetRow{display:flex; gap:8px; flex-wrap:wrap}
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="wrap row">
+    <div class="title">
+      <span aria-hidden="true">📻</span>
+      <span>SW + AM + FM Stream Receiver</span>
+      <span class="badge">Android PWA</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="btnInstall" hidden>⬇️ Install</button>
+    <button class="btn" id="btnTop">🔥 Top</button>
+    <button class="btn" id="btnRecent">🕘 Recent</button>
+    <button class="btn" id="btnFavs">⭐ Favorites</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="grid">
+    <section class="card">
+      <div class="hd">
+        <strong>Find stations</strong>
+        <span class="muted" style="font-size:12px">Streaming directory search</span>
+        <span class="spacer"></span>
+        <div class="tabs" role="tablist" aria-label="Band tabs">
+          <div class="tab active" id="tabSW" role="tab" aria-selected="true">SW</div>
+          <div class="tab" id="tabAM" role="tab" aria-selected="false">AM</div>
+          <div class="tab" id="tabFM" role="tab" aria-selected="false">FM</div>
+        </div>
+      </div>
+
+      <div class="bd">
+        <div class="inputs">
+          <div class="field">
+            <label for="q">Search</label>
+            <input id="q" placeholder="Station / keyword / call letters…" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="country">Country (optional)</label>
+            <input id="country" placeholder="e.g. Canada, United States" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="lang">Language (optional)</label>
+            <input id="lang" placeholder="e.g. English, French" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="limit">Results</label>
+            <select id="limit">
+              <option>15</option>
+              <option selected>25</option>
+              <option>50</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="btnSearch">🔎 Search</button>
+          <button class="btn" id="btnQuickSW">✨ SW picks</button>
+          <button class="btn" id="btnQuickAM">📡 AM picks</button>
+          <button class="btn" id="btnQuickFM">🎶 FM picks</button>
+          <button class="btn" id="btnClear">🧹 Clear</button>
+          <span class="spacer"></span>
+          <span class="pill" id="apiBadge">API: connecting…</span>
+        </div>
+
+        <div class="warnbox" style="margin-top:12px">
+          AM/FM frequencies aren’t consistently tagged online. Presets work best; otherwise search by call letters or station name.
+        </div>
+
+        <!-- Presets: Hamilton + Toronto -->
+        <div class="presets" id="presetPanel">
+          <h4>📍 Presets: Hamilton + Toronto (ON)</h4>
+          <div class="muted" style="font-size:12px">
+            Tap a preset to set band + frequency, search, and auto-play the first match.
+          </div>
+
+          <div class="muted" style="font-size:12px; margin-top:6px"><b>Hamilton</b> — AM</div>
+          <div class="presetRow">
+            <button class="btn tiny" data-preset='{"band":"AM","freq":"820","q":"CHAM Big AM 820","country":"Canada","lang":""}'>820 CHAM</button>
+            <button class="btn tiny" data-preset='{"band":"AM","freq":"1150","q":"CKOC 1150","country":"Canada","lang":""}'>1150 CKOC</button>
+          </div>
+
+          <div class="muted" style="font-size:12px; margin-top:2px"><b>Hamilton</b> — FM</div>
+          <div class="presetRow">
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"93.3","q":"CFMU 93.3","country":"Canada","lang":""}'>93.3 CFMU</button>
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"94.7","q":"KX 94.7 CHKX","country":"Canada","lang":"English"}'>94.7 KX</button>
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"95.3","q":"Energy 95.3 CING","country":"Canada","lang":"English"}'>95.3 Energy</button>
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"102.9","q":"Legend 102.9 CKLH","country":"Canada","lang":"English"}'>102.9 Legend</button>
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"107.9","q":"Y108 CJXY 107.9","country":"Canada","lang":"English"}'>107.9 Y108</button>
+          </div>
+
+          <hr style="border:0;border-top:1px solid rgba(147,164,191,.18); margin:10px 0">
+
+          <div class="muted" style="font-size:12px"><b>Toronto</b> — AM</div>
+          <div class="presetRow">
+            <button class="btn tiny" data-preset='{"band":"AM","freq":"590","q":"Sportsnet 590 The FAN CJCL 590","country":"Canada","lang":"English"}'>590 The FAN</button>
+            <button class="btn tiny" data-preset='{"band":"AM","freq":"680","q":"NewsTalk 680 CFTR","country":"Canada","lang":"English"}'>680 NewsTalk</button>
+            <button class="btn tiny" data-preset='{"band":"AM","freq":"740","q":"Zoomer Radio 740 CHWO","country":"Canada","lang":"English"}'>740 Zoomer</button>
+            <button class="btn tiny" data-preset='{"band":"AM","freq":"1010","q":"CFRB 1010","country":"Canada","lang":"English"}'>1010 CFRB</button>
+          </div>
+
+          <div class="muted" style="font-size:12px; margin-top:2px"><b>Toronto</b> — FM</div>
+          <div class="presetRow">
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"94.1","q":"CBC Music Toronto 94.1","country":"Canada","lang":"English"}'>94.1 CBC Music</button>
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"99.1","q":"CBC Radio One Toronto 99.1 CBL-FM","country":"Canada","lang":"English"}'>99.1 CBC One</button>
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"91.1","q":"JAZZ.FM91 91.1 CJRT","country":"Canada","lang":"English"}'>91.1 JAZZ.FM</button>
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"102.1","q":"102.1 The Edge CFNY","country":"Canada","lang":"English"}'>102.1 The Edge</button>
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"104.5","q":"CHUM 104.5 CHUM-FM","country":"Canada","lang":"English"}'>104.5 CHUM</button>
+            <button class="btn tiny" data-preset='{"band":"FM","freq":"107.1","q":"Q107 107.1 CILQ","country":"Canada","lang":"English"}'>107.1 Q107</button>
+          </div>
+
+          <div class="muted" style="font-size:12px; margin-top:8px">
+            If a preset doesn’t play, tap it again and try another result in the list (some stations have multiple entries).
+          </div>
+        </div>
+
+        <div class="kpi" style="margin-top:12px">
+          <span class="pill" id="kpiCount">0 results</span>
+          <span class="pill" id="kpiMode">Mode: Search</span>
+        </div>
+
+        <div class="list" id="results" style="margin-top:12px"></div>
+      </div>
+    </section>
+
+    <aside class="card">
+      <div class="hd">
+        <strong>Tuner</strong>
+        <span class="muted" style="font-size:12px" id="tunerHint">Shortwave dial (UI + search helper)</span>
+      </div>
+      <div class="bd tuner">
+        <div class="dial">
+          <div class="freq">
+            <div>
+              <div class="muted" style="font-size:12px">Frequency</div>
+              <div class="big" id="freqBig">9.900 MHz</div>
+            </div>
+            <div class="muted" style="font-size:12px" id="freqBand">Band: 31m</div>
+          </div>
+          <input id="freq" type="range" min="3.0" max="30.0" step="0.005" value="9.9" />
+          <div class="row">
+            <button class="btn small" id="btnStepDown">◀︎ Step</button>
+            <button class="btn small" id="btnStepUp">Step ▶︎</button>
+            <button class="btn primary small" id="btnTuneSearch">🎯 Tune+Search</button>
+            <span class="spacer"></span>
+            <button class="btn warn small" id="btnSleep">😴 Sleep: Off</button>
+          </div>
+          <div class="muted" style="font-size:12px; margin-top:8px" id="stepHint">Step: 5 kHz</div>
+        </div>
+
+        <div class="now">
+          <div class="box">
+            <div class="row">
+              <span class="status"><span class="dot" id="dot"></span><span id="statusText">Idle</span></span>
+              <span class="spacer"></span>
+              <button class="btn good" id="btnPlayPause">▶️ Play</button>
+              <button class="btn" id="btnStop">⏹ Stop</button>
+            </div>
+
+            <div style="margin-top:10px">
+              <div class="muted" style="font-size:12px">Now playing</div>
+              <div style="font-weight:800; margin-top:2px" id="nowName">—</div>
+              <div class="muted" style="font-size:12px" id="nowMeta">—</div>
+            </div>
+
+            <div style="margin-top:10px">
+              <audio id="audio" controls playsinline></audio>
+            </div>
+
+            <div class="row" style="margin-top:10px">
+              <button class="btn" id="btnFavToggle">⭐ Add favorite</button>
+              <button class="btn" id="btnShare">🔗 Share</button>
+            </div>
+          </div>
+
+          <div class="footer">© 2026 Your Name. Station directory via Radio Browser.</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script>
+(() => {
+  // Radio Browser API docs: https://docs.radio-browser.info/
+  const API_BASE = "https://de1.api.radio-browser.info";
+
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    q: $("q"), country: $("country"), lang: $("lang"), limit: $("limit"),
+    results: $("results"), kpiCount: $("kpiCount"), kpiMode: $("kpiMode"), apiBadge: $("apiBadge"),
+
+    tabSW: $("tabSW"), tabAM: $("tabAM"), tabFM: $("tabFM"),
+    tunerHint: $("tunerHint"), freq: $("freq"),
+    freqBig: $("freqBig"), freqBand: $("freqBand"), stepHint: $("stepHint"),
+    btnStepDown: $("btnStepDown"), btnStepUp: $("btnStepUp"), btnTuneSearch: $("btnTuneSearch"),
+    btnSleep: $("btnSleep"),
+
+    btnSearch: $("btnSearch"), btnTop: $("btnTop"), btnRecent: $("btnRecent"), btnFavs: $("btnFavs"),
+    btnQuickSW: $("btnQuickSW"), btnQuickAM: $("btnQuickAM"), btnQuickFM: $("btnQuickFM"),
+    btnClear: $("btnClear"), btnInstall: $("btnInstall"),
+
+    audio: $("audio"), nowName: $("nowName"), nowMeta: $("nowMeta"),
+    btnPlayPause: $("btnPlayPause"), btnStop: $("btnStop"),
+    btnFavToggle: $("btnFavToggle"), btnShare: $("btnShare"),
+    dot: $("dot"), statusText: $("statusText"),
+
+    presetPanel: $("presetPanel"),
+  };
+
+  let band = "SW"; // SW | AM | FM
+  let mode = "Search";
+  let current = null;
+  let favorites = loadJSON("sw_favorites_v1", []);
+  let sleepTimer = null;
+  let sleepMinutes = 0;
+  let lastResults = [];
+
+  function saveJSON(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+  function loadJSON(key, fallback){
+    try{ const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; }catch{ return fallback; }
+  }
+  function fmt(x){ return (x ?? "").toString().trim(); }
+  function uniqByUuid(arr){
+    const seen = new Set();
+    return arr.filter(s => (s?.stationuuid && !seen.has(s.stationuuid) && seen.add(s.stationuuid)));
+  }
+  function setMode(m){ mode=m; el.kpiMode.textContent = `Mode: ${m}`; }
+  function setStatus(kind, text){
+    el.statusText.textContent = text;
+    el.dot.classList.remove("live","err");
+    if(kind === "live") el.dot.classList.add("live");
+    if(kind === "err") el.dot.classList.add("err");
+  }
+  function stationMeta(s){
+    const parts = [];
+    if (s.country) parts.push(s.country);
+    if (s.language) parts.push(s.language);
+    if (s.codec) parts.push(s.codec.toUpperCase());
+    if (Number.isFinite(+s.bitrate) && +s.bitrate>0) parts.push(`${s.bitrate} kbps`);
+    return parts.join(" • ") || "—";
+  }
+  function pickStation(s){
+    return {
+      stationuuid: s.stationuuid,
+      name: s.name || "Unknown",
+      country: s.country || "",
+      language: s.language || "",
+      codec: s.codec || "",
+      bitrate: s.bitrate ?? "",
+      homepage: s.homepage || "",
+      tags: s.tags || "",
+      url: s.url || ""
+    };
+  }
+  function isFav(uuid){ return favorites.some(f => f.stationuuid === uuid); }
+  function addFav(st){
+    if(!st?.stationuuid) return;
+    if(isFav(st.stationuuid)) return;
+    favorites.unshift(pickStation(st));
+    favorites = favorites.slice(0,200);
+    saveJSON("sw_favorites_v1", favorites);
+  }
+  function removeFav(uuid){
+    favorites = favorites.filter(f => f.stationuuid !== uuid);
+    saveJSON("sw_favorites_v1", favorites);
+  }
+  function updateFavButton(){
+    if(!current?.stationuuid){ el.btnFavToggle.textContent="⭐ Add favorite"; return; }
+    el.btnFavToggle.textContent = isFav(current.stationuuid) ? "⭐ Remove favorite" : "⭐ Add favorite";
+  }
+  function updateNowPlaying(){
+    if(!current){ el.nowName.textContent="—"; el.nowMeta.textContent="—"; return; }
+    el.nowName.textContent = current.name || "Unknown";
+    el.nowMeta.textContent = stationMeta(current);
+  }
+
+  function setBand(b){
+    band = b;
+    el.tabSW.classList.toggle("active", band==="SW");
+    el.tabAM.classList.toggle("active", band==="AM");
+    el.tabFM.classList.toggle("active", band==="FM");
+
+    if(band==="SW"){
+      el.tunerHint.textContent = "Shortwave dial (UI + search helper)";
+      el.freq.min="3.0"; el.freq.max="30.0"; el.freq.step="0.005";
+      if(!(parseFloat(el.freq.value)>=3 && parseFloat(el.freq.value)<=30)) el.freq.value="9.900";
+      el.stepHint.textContent="Step: 5 kHz";
+      if(!el.q.value) el.q.value="shortwave";
+    }else if(band==="AM"){
+      el.tunerHint.textContent = "AM (MW) dial (UI + search helper)";
+      el.freq.min="530"; el.freq.max="1710"; el.freq.step="10";
+      if(!(parseFloat(el.freq.value)>=530 && parseFloat(el.freq.value)<=1710)) el.freq.value="1000";
+      el.stepHint.textContent="Step: 10 kHz";
+      if(!el.country.value) el.country.value="Canada";
+      if(!el.q.value) el.q.value="news talk";
+    }else{
+      el.tunerHint.textContent = "FM dial (UI + search helper)";
+      el.freq.min="87.5"; el.freq.max="108.0"; el.freq.step="0.1";
+      const v = parseFloat(el.freq.value);
+      if(!(v>=87.5 && v<=108.0)) el.freq.value="99.9";
+      el.stepHint.textContent="Step: 0.1 MHz";
+      if(!el.country.value) el.country.value="Canada";
+      if(!el.q.value) el.q.value="FM";
+    }
+    updateFreqUI();
+  }
+
+  function hzToBandLabelSW(mhz){
+    const f = mhz;
+    const bands = [
+      {min:3.2,max:3.4,label:"90m"},{min:3.9,max:4.1,label:"75m"},{min:4.7,max:5.1,label:"60m"},
+      {min:5.9,max:6.3,label:"49m"},{min:7.1,max:7.6,label:"41m"},{min:9.4,max:10.0,label:"31m"},
+      {min:11.6,max:12.2,label:"25m"},{min:13.5,max:13.9,label:"22m"},{min:15.0,max:15.9,label:"19m"},
+      {min:17.4,max:17.9,label:"16m"},{min:21.4,max:21.9,label:"13m"},{min:25.6,max:26.1,label:"11m"},
+    ];
+    const b = bands.find(x => f>=x.min && f<=x.max);
+    return b ? `Band: ${b.label}` : "Band: —";
+  }
+
+  function updateFreqUI(){
+    if(band==="SW"){
+      const mhz = parseFloat(el.freq.value);
+      el.freqBig.textContent = `${mhz.toFixed(3)} MHz`;
+      el.freqBand.textContent = hzToBandLabelSW(mhz);
+    }else if(band==="AM"){
+      const khz = parseInt(el.freq.value, 10);
+      el.freqBig.textContent = `${khz} kHz`;
+      el.freqBand.textContent = "Band: AM (MW)";
+    }else{
+      const mhz = parseFloat(el.freq.value);
+      el.freqBig.textContent = `${mhz.toFixed(1)} MHz`;
+      el.freqBand.textContent = "Band: FM";
+    }
+  }
+
+  function stepFreq(dir){
+    const step = parseFloat(el.freq.step);
+    const min = parseFloat(el.freq.min);
+    const max = parseFloat(el.freq.max);
+    let v = parseFloat(el.freq.value) + dir * step;
+    v = Math.min(max, Math.max(min, v));
+    v = Math.round(v/step)*step;
+    el.freq.value = String(v);
+    updateFreqUI();
+  }
+
+  async function apiGet(path, params = {}){
+    const url = new URL(API_BASE + path);
+    for(const [k,v] of Object.entries(params)){
+      if(v === undefined || v === null || `${v}`.trim()==="") continue;
+      url.searchParams.set(k, v);
+    }
+    const res = await fetch(url.toString(), { method:"GET" });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  }
+
+  async function detectApi(){
+    try{
+      await apiGet("/json/stations/topclick/1", { hidebroken:"true" });
+      el.apiBadge.textContent = "API: connected";
+    }catch{
+      el.apiBadge.textContent = "API: offline?";
+    }
+  }
+
+  async function searchStations(){
+    setMode("Search");
+    setStatus("", "Searching…");
+    el.results.innerHTML = "";
+    el.kpiCount.textContent = "Searching…";
+
+    const data = await apiGet("/json/stations/search", {
+      name: fmt(el.q.value),
+      country: fmt(el.country.value),
+      language: fmt(el.lang.value),
+      limit: fmt(el.limit.value) || "25",
+      hidebroken:"true",
+      order:"clickcount",
+      reverse:"true"
+    });
+
+    lastResults = uniqByUuid(Array.isArray(data)?data:[]);
+    renderResults(lastResults);
+    setStatus("", "Idle");
+  }
+
+  async function listTop(){
+    setMode("Top");
+    setStatus("", "Loading top…");
+    el.results.innerHTML = "";
+    const limit = fmt(el.limit.value) || "25";
+    const data = await apiGet(`/json/stations/topclick/${limit}`, { hidebroken:"true" });
+    lastResults = uniqByUuid(Array.isArray(data)?data:[]);
+    renderResults(lastResults);
+    setStatus("", "Idle");
+  }
+
+  async function listRecent(){
+    setMode("Recent");
+    setStatus("", "Loading recent…");
+    el.results.innerHTML = "";
+    const limit = fmt(el.limit.value) || "25";
+    const data = await apiGet(`/json/stations/lastclick/${limit}`, { hidebroken:"true" });
+    lastResults = uniqByUuid(Array.isArray(data)?data:[]);
+    renderResults(lastResults);
+    setStatus("", "Idle");
+  }
+
+  function showFavs(){
+    setMode("Favorites");
+    lastResults = favorites.slice();
+    renderResults(lastResults);
+  }
+
+  async function tuneSearch(){
+    const limit = fmt(el.limit.value) || "25";
+    const country = fmt(el.country.value);
+    const language = fmt(el.lang.value);
+
+    let tries = [];
+    if(band==="SW"){
+      const mhz = parseFloat(el.freq.value).toFixed(3);
+      tries = [{name: mhz}, {name:`shortwave ${mhz}`}, {name:"shortwave"}];
+      setMode(`Tune+Search ${mhz} MHz`);
+    }else if(band==="AM"){
+      const khz = parseInt(el.freq.value,10);
+      tries = [{name:String(khz)}, {name:`AM ${khz}`}, {name:`${khz} kHz`}, {name:"news talk AM"}, {name:"AM"}];
+      setMode(`Tune+Search ${khz} kHz`);
+    }else{
+      const mhz = parseFloat(el.freq.value).toFixed(1);
+      tries = [{name: mhz}, {name:`${mhz} FM`}, {name:`FM ${mhz}`}, {name:"FM"}, {name:"hits"}];
+      setMode(`Tune+Search ${mhz} MHz`);
+    }
+
+    setStatus("", "Searching…");
+    el.results.innerHTML = "";
+    el.kpiCount.textContent = "Searching…";
+
+    let merged = [];
+    for(const t of tries){
+      try{
+        const data = await apiGet("/json/stations/search", {
+          name: t.name,
+          country,
+          language,
+          limit,
+          hidebroken:"true",
+          order:"clickcount",
+          reverse:"true"
+        });
+        merged = merged.concat(Array.isArray(data)?data:[]);
+        if(merged.length >= Number(limit)) break;
+      }catch{}
+    }
+
+    lastResults = uniqByUuid(merged).slice(0, Number(limit));
+    renderResults(lastResults);
+    setStatus("", "Idle");
+  }
+
+  function quickSW(){ setBand("SW"); el.q.value="shortwave"; el.country.value=""; el.lang.value=""; searchStations().catch(showError); }
+  function quickAM(){ setBand("AM"); el.q.value="news talk"; el.country.value = el.country.value || "Canada"; el.lang.value="English"; searchStations().catch(showError); }
+  function quickFM(){ setBand("FM"); el.q.value="hits"; el.country.value = el.country.value || "Canada"; el.lang.value="English"; searchStations().catch(showError); }
+
+  async function resolveAndPlay(st){
+    if(!st?.stationuuid) return;
+
+    current = pickStation(st);
+    updateNowPlaying();
+    updateFavButton();
+
+    setStatus("", "Resolving stream…");
+    let url = current.url;
+    try{
+      const r = await apiGet(`/json/url/${encodeURIComponent(current.stationuuid)}`);
+      if(r?.url) url = r.url;
+    }catch{}
+
+    if(!url){ setStatus("err","No stream URL"); return; }
+
+    el.audio.src = url;
+    el.audio.load();
+
+    try{
+      await el.audio.play();
+      setStatus("live","Playing");
+      el.btnPlayPause.textContent = "⏸ Pause";
+    }catch{
+      setStatus("err","Tap Play (autoplay blocked)");
+      el.btnPlayPause.textContent = "▶️ Play";
+    }
+  }
+
+  function stop(){
+    el.audio.pause();
+    el.audio.removeAttribute("src");
+    el.audio.load();
+    setStatus("", "Stopped");
+    el.btnPlayPause.textContent = "▶️ Play";
+  }
+
+  function togglePlayPause(){
+    if(!el.audio.src){
+      if(current?.stationuuid) resolveAndPlay(current).catch(showError);
+      else setStatus("", "Pick a station first");
+      return;
+    }
+    if(el.audio.paused){
+      el.audio.play().then(()=>{
+        setStatus("live","Playing");
+        el.btnPlayPause.textContent="⏸ Pause";
+      }).catch(()=>setStatus("err","Could not play"));
+    }else{
+      el.audio.pause();
+      setStatus("", "Paused");
+      el.btnPlayPause.textContent="▶️ Play";
+    }
+  }
+
+  function toggleFav(){
+    if(!current?.stationuuid) return;
+    if(isFav(current.stationuuid)) removeFav(current.stationuuid);
+    else addFav(current);
+    updateFavButton();
+    if(mode==="Favorites") showFavs();
+  }
+
+  async function shareCurrent(){
+    if(!current) return;
+    const data = { title:"SW + AM + FM Stream Receiver", text:`Listening to: ${current.name}`, url: current.homepage || location.href };
+    try{
+      if(navigator.share) await navigator.share(data);
+      else { await navigator.clipboard.writeText(data.url); setStatus("", "Link copied"); }
+    }catch{}
+  }
+
+  function renderResults(arr){
+    el.results.innerHTML = "";
+    el.kpiCount.textContent = `${arr.length} results`;
+    if(!arr.length){
+      el.results.innerHTML = `<div class="muted" style="font-size:12px">No results. Try call letters or station name.</div>`;
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for(const s of arr){
+      const card = document.createElement("div");
+      card.className = "station";
+
+      const left = document.createElement("div");
+      const nm = document.createElement("div");
+      nm.className = "name";
+      nm.textContent = s.name || "Unknown station";
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = stationMeta(s);
+      left.appendChild(nm); left.appendChild(meta);
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const bPlay = document.createElement("button");
+      bPlay.className = "btn good tiny";
+      bPlay.textContent = "▶ Play";
+      bPlay.addEventListener("click", () => resolveAndPlay(s).catch(showError));
+
+      const bFav = document.createElement("button");
+      bFav.className = "btn tiny";
+      const fav = isFav(s.stationuuid);
+      bFav.textContent = fav ? "⭐" : "☆";
+      bFav.title = fav ? "Remove favorite" : "Add favorite";
+      bFav.addEventListener("click", () => {
+        if(fav) removeFav(s.stationuuid); else addFav(s);
+        renderResults(lastResults);
+        updateFavButton();
+      });
+
+      const bWeb = document.createElement("button");
+      bWeb.className = "btn tiny";
+      bWeb.textContent = "🌐";
+      bWeb.disabled = !s.homepage;
+      bWeb.addEventListener("click", () => { if(s.homepage) window.open(s.homepage, "_blank"); });
+
+      actions.appendChild(bPlay); actions.appendChild(bFav); actions.appendChild(bWeb);
+      card.appendChild(left); card.appendChild(actions);
+      frag.appendChild(card);
+    }
+    el.results.appendChild(frag);
+  }
+
+  function showError(err){ console.error(err); setStatus("err","Error (check internet)"); }
+
+  function setSleep(min){
+    sleepMinutes = min;
+    if(sleepTimer) clearTimeout(sleepTimer);
+    sleepTimer = null;
+    if(min<=0){ el.btnSleep.textContent="😴 Sleep: Off"; return; }
+    el.btnSleep.textContent=`😴 Sleep: ${min}m`;
+    sleepTimer = setTimeout(() => {
+      stop();
+      setStatus("", "Sleep timer stopped audio");
+      sleepMinutes = 0;
+      el.btnSleep.textContent="😴 Sleep: Off";
+    }, min*60*1000);
+  }
+
+  // Presets: run preset -> search -> autoplay first result
+  async function runPreset(p){
+    try{
+      setBand(p.band);
+      if(p.band==="AM") el.freq.value = String(parseInt(p.freq,10));
+      if(p.band==="FM") el.freq.value = String(parseFloat(p.freq).toFixed(1));
+      updateFreqUI();
+
+      el.q.value = p.q || "";
+      el.country.value = p.country || "";
+      el.lang.value = p.lang || "";
+
+      await searchStations();
+      if(lastResults && lastResults.length){
+        await resolveAndPlay(lastResults[0]);
+      }else{
+        setStatus("err","No match found (try Search)");
+      }
+    }catch(e){
+      console.error(e);
+      setStatus("err","Preset failed (try Search)");
+    }
+  }
+
+  // Events
+  el.btnSearch.addEventListener("click", ()=> searchStations().catch(showError));
+  el.btnTop.addEventListener("click", ()=> listTop().catch(showError));
+  el.btnRecent.addEventListener("click", ()=> listRecent().catch(showError));
+  el.btnFavs.addEventListener("click", showFavs);
+
+  el.btnQuickSW.addEventListener("click", quickSW);
+  el.btnQuickAM.addEventListener("click", quickAM);
+  el.btnQuickFM.addEventListener("click", quickFM);
+
+  el.btnClear.addEventListener("click", ()=>{
+    el.q.value=""; el.country.value=""; el.lang.value="";
+    el.results.innerHTML=""; el.kpiCount.textContent="0 results"; setMode("Search");
+  });
+  el.q.addEventListener("keydown", (e)=>{ if(e.key==="Enter") el.btnSearch.click(); });
+
+  el.btnPlayPause.addEventListener("click", togglePlayPause);
+  el.btnStop.addEventListener("click", stop);
+  el.btnFavToggle.addEventListener("click", toggleFav);
+  el.btnShare.addEventListener("click", shareCurrent);
+
+  el.audio.addEventListener("playing", ()=>{ setStatus("live","Playing"); el.btnPlayPause.textContent="⏸ Pause"; });
+  el.audio.addEventListener("pause", ()=>{ if(el.audio.src){ setStatus("", "Paused"); el.btnPlayPause.textContent="▶️ Play"; }});
+  el.audio.addEventListener("error", ()=>{ setStatus("err","Stream error (try another)"); });
+
+  el.freq.addEventListener("input", updateFreqUI);
+  el.btnStepDown.addEventListener("click", ()=> stepFreq(-1));
+  el.btnStepUp.addEventListener("click", ()=> stepFreq(+1));
+  el.btnTuneSearch.addEventListener("click", ()=> tuneSearch().catch(showError));
+
+  el.btnSleep.addEventListener("click", ()=>{
+    const next = sleepMinutes===0 ? 15 : sleepMinutes===15 ? 30 : sleepMinutes===30 ? 60 : 0;
+    setSleep(next);
+  });
+
+  el.tabSW.addEventListener("click", ()=> setBand("SW"));
+  el.tabAM.addEventListener("click", ()=> setBand("AM"));
+  el.tabFM.addEventListener("click", ()=> setBand("FM"));
+
+  el.presetPanel.querySelectorAll("[data-preset]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const p = JSON.parse(btn.getAttribute("data-preset"));
+      runPreset(p);
+    });
+  });
+
+  // PWA install
+  let deferredPrompt=null;
+  window.addEventListener("beforeinstallprompt",(e)=>{
+    e.preventDefault();
+    deferredPrompt=e;
+    el.btnInstall.hidden=false;
+    el.btnInstall.addEventListener("click", async ()=>{
+      el.btnInstall.hidden=true;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt=null;
+    }, { once:true });
+  });
+
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  }
+
+  // Init
+  detectApi();
+  setBand("FM");
+  el.country.value = "Canada";
+  el.lang.value = "English";
+  el.q.value = "Toronto";
+  searchStations().catch(()=>{});
+})();
+</script>
+</body>
+</html>
